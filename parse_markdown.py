@@ -61,17 +61,37 @@ class Section:
     def children(self) -> list:
         return self._children
 
-    def display(self) -> str:
+    def display(self, identify=False) -> str:
         level_indication = '\t'*self.level.value
         display_title = self.title if self.parent != None else ''
-        text = f"{level_indication}{display_title}\n"
+        identify = ''
+        if self.parent != None:
+            for i in range(len(self.parent.children)):
+                if self.parent.children[i] == self:
+                    identify = f"{i}| "
+        text = f"{level_indication}{identify}{display_title}\n"
         return text
 
-    def display_family(self) -> str:
+    def display_family(self, identify=False) -> str:
         text = self.display()
         for child in self.children:
-            text += child.display_family()
+            text += child.display_family(identify)
         return text
+
+    def get_descendent(self, identity_string:str):
+        identity_string = identity_string.replace(' ', '')
+        identity = identity_string.split(',')
+        current = int(identity[0])
+        # Get the child item identified 
+        try:
+            item = self.children[current]
+        except IndexError:
+            raise ValueError(f"{self.display} does not have child {current}")
+        if len(identity) == 1:
+            return item
+        else:
+            # Create new identity_string 
+            return self.children[current].get_descendent(','.join(identity[1:]))
 
     def markdown(self) -> str:
         level_indication = '#'*self.level.value
@@ -132,8 +152,11 @@ def parse_markdown_file(markdown_file:str):
             headers.append(i)
 
     unbound_text = ''
-    if headers[0] != 0:
+    # Check to see if the first line including a header is not the first line in the file
+    if len(headers) > 1 and headers[0] != 0:
         unbound_text = _parse_text(0, headers[0], full_text)
+    elif len(headers) == 0:
+        unbound_text = _parse_text(0, len(full_text), full_text)
 
     root = Section(short_file_name, unbound_text)
     prev = root
@@ -143,10 +166,14 @@ def parse_markdown_file(markdown_file:str):
         match = header_symbol.search(full_text[line])
         level = match.span()[1]
         title = _parse_title(full_text[line][level:])
+        start = line + 1
+        emptyText = False
         try:
-            text = _parse_text(line + 1, headers[hline+1], full_text) 
+            end = headers[hline+1]
         except IndexError:
-            text = ''
+            end = len(full_text)
+        emptyText = (start == end)
+        text = "" if emptyText else _parse_text(start, end, full_text) 
 
         if level > prev.level.value:
             # This is a child of the previous
