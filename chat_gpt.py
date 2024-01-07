@@ -9,7 +9,7 @@ import tty
 import termios
 import tempfile
 import subprocess
-from parse_markdown import parse_markdown_file
+from parse_markdown import parse_markdown_file, Section, Level
 
 def wait_for_keypress():
     fd = sys.stdin.fileno()
@@ -26,6 +26,35 @@ def delete_lines(lines=1):
         sys.stdout.write('\x1b[1A')
         sys.stdout.write('\x1b[2K')
 
+def update_history(messages, markdown_info):
+    messages[1]['content'] = markdown_info.markdown_family()
+
+def save_result_to_history(markdown_info, prompt, result):
+    print('Would you like to add this to an object in the history? Y/n')
+    key = wait_for_keypress()
+    while key not in ['y', 'n']:
+        key = wait_for_keypress()
+    if key == 'n':
+        return
+
+    # Update the requested item
+    item_address = input('What is the family identifier for the object you wish to add to?\n')
+    item = markdown_info.get_descendent(item_address)
+    if isinstance(result, str):
+        newItem = Section(prompt, result, level=Level(item.level.value + 1), parent=item)
+        item.children.append(newItem)
+    elif isinstance(result, Image.Image):
+        # Save the image to the current working directory
+        name = 1
+        while os.path.exists(f"{name}.PNG"):
+            name += 1
+        path = f"{os.getcwd()}/{name}.PNG"
+        result.save(path, "PNG")
+        # Append the image markdown to the text of item
+        item.text += f"\n![{prompt}]({path})\n\n"
+    else: 
+        raise TypeError(f'{type(result)} cannot be currently added to markdown') 
+
 PROMPT = """
 What do you need? 
 \t't' - Generate a text response to a prompt
@@ -38,7 +67,6 @@ DISPLAY_HISTORY = """\t'd' - Display all sections of history file loaded
 """
 QUIT_OPTION = """\t'q' - Quit
 """
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="Chat GPT Terminal Interface",
@@ -101,9 +129,10 @@ if __name__ == "__main__":
             for sibling in temp_root.children[1:]:
                 sibling.parent = item.parent
                 item.parent.children.append(sibling)
-            print(edited_item.markdown())
             # Replace the item with the edited item in the tree 
             item.parent.children[item_index] = edited_item
+            # Reload the historical data used for text prompts 
+            update_history(messages, markdown_info)
         elif markdown_info and key == 'i':
             identity_string = input('What object do you want?\n')
             delete_lines(lines=2)
@@ -117,12 +146,12 @@ if __name__ == "__main__":
                 while key not in ['y', 'n']:
                     key = wait_for_keypress().lower()
                 if key == 'y':
-                    character = input('What would you like described?\n')
+                    character = input('What would you like depicted?\n')
                     messages.append({'role': 'user',
                                      'content': f"Provide a visual description of '{character}'"})
                     chat = client.chat.completions.create(model='gpt-3.5-turbo-1106', messages=messages)
                     prompt = chat.choices[0].message.content 
-            
+
             if prompt == "":
                 prompt = input('What do you need a picture of?\n')
             response = client.images.generate(
@@ -135,8 +164,16 @@ if __name__ == "__main__":
             pic = requests.get(image_url).content
             image = Image.open(BytesIO(pic))
             image.show()
+            if markdown_info:
+                summaryPrompt = f"Summarize the following in one line: '{prompt}'"
+                messages.append({'role': 'user',
+                                 'content': summaryPrompt})
+                chat = client.chat.completions.create(model='gpt-3.5-turbo-1106', messages=messages)
+                summary = chat.choices[0].message.content.replace('\n', '')
+                save_result_to_history(markdown_info, summary, image)
+                update_history(messages, markdown_info)
         elif markdown_info and key == 's':
-            fileName = input('What do you want to name the new history?\n')
+            fileName = input('What do you want to name the new history?\n(This will be saved to the current working directory)\n')
             if len(fileName) > 3 and fileName[-3:].lower() != '.md':
                 fileName += '.md'
             with open(fileName, 'w') as new_history:
@@ -151,3 +188,6 @@ if __name__ == "__main__":
             reply = chat.choices[0].message.content
             print(f'\n{reply}')
             messages.append({'role': 'assistant', 'content': reply})
+            if markdown_info:
+                save_result_to_history(markdown_info, message, reply)
+                update_history(messages, markdown_info)

@@ -1,3 +1,6 @@
 .venv
 *.pyc
+*.PNG
+*.pdf
+History.md
 __pycache__

@@ -1,7 +1,7 @@
 #!/bin/bash 
 # Generate the Player version 
 echo "Generating Player Guide"
-~/Dropbox/Scripts/dnd.py mafia --nobles --cities --npcs --orgs --map --items --events > PlayerGuide.md
+~/Dropbox/Scripts/dnd.py current --source $1 --nobles --cities --npcs --orgs --map --items --events > PlayerGuide.md
 echo "Generating Player Guide PDF"
 pandoc -s -V geometry:margin=1in -o PlayerGuide.pdf PlayerGuide.md
 

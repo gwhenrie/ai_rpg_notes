@@ -140,7 +140,7 @@ def parse_markdown_file(markdown_file:str):
         raise ValueError('markdown_file did not refer to a valid path to a file.')
     full_text = list()
     with open(markdown_file, 'r') as filedata:
-        full_text = filedata.readlines()
+        full_text = list(filter(lambda x: x.strip(), filedata.readlines()))
 
     # Begin parseing 
     short_file_name = markdown_file.split('/')[-1].lower().replace('.md', '')
