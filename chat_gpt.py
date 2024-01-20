@@ -26,10 +26,11 @@ def delete_lines(lines=1):
         sys.stdout.write('\x1b[1A')
         sys.stdout.write('\x1b[2K')
 
-def update_history(messages, markdown_info):
-    messages[1]['content'] = markdown_info.markdown_family()
+def get_object(markdown_info):
+    item_address = input('What is the family identifier for the object you wish to select?\n')
+    return markdown_info.get_descendent(item_address.replace(' ', ''))
 
-def save_result_to_history(markdown_info, prompt, result):
+def save_result_to_history(markdown_info, prompt, result, edit_object=None):
     print('Would you like to add this to an object in the history? Y/n')
     key = wait_for_keypress()
     while key not in ['y', 'n']:
@@ -38,8 +39,7 @@ def save_result_to_history(markdown_info, prompt, result):
         return
 
     # Update the requested item
-    item_address = input('What is the family identifier for the object you wish to add to?\n')
-    item = markdown_info.get_descendent(item_address)
+    item = edit_object if edit_object != None else get_object(markdown_info)
     if isinstance(result, str):
         newItem = Section(prompt, result, level=Level(item.level.value + 1), parent=item)
         item.children.append(newItem)
@@ -85,8 +85,6 @@ if __name__ == "__main__":
             raise ValueError(f'"{args.history}" does not exist')
         with open(args.history, 'r') as history:
             historicalData = history.read()
-        messages.append({'role': 'system',
-                        'content': historicalData})
         markdown_info = parse_markdown_file(args.history)
 
     history_options = DISPLAY_HISTORY if markdown_info else ""
@@ -132,8 +130,6 @@ if __name__ == "__main__":
                 item.parent.children.append(sibling)
             # Replace the item with the edited item in the tree 
             item.parent.children[item_index] = edited_item
-            # Reload the historical data used for text prompts 
-            update_history(messages, markdown_info)
         elif markdown_info and key == 'i':
             identity_string = input('What object do you want?\n')
             delete_lines(lines=2)
@@ -141,15 +137,17 @@ if __name__ == "__main__":
             print(item.markdown())
         elif key == 'p':
             prompt = ""
+            item = None
+
             if markdown_info: 
                 print('Would you like to describe something in the history? Y (Yes)/n (no)')
                 key = wait_for_keypress().lower()
                 while key not in ['y', 'n']:
                     key = wait_for_keypress().lower()
                 if key == 'y':
-                    character = input('What would you like depicted?\n')
+                    item = get_object(markdown_info) 
                     messages.append({'role': 'user',
-                                     'content': f"Provide a visual description of '{character}'"})
+                                     'content': f"Provide a visual description of:\n{item.markdown()}"})
                     chat = client.chat.completions.create(model=OPENAI_MODEL, messages=messages)
                     prompt = chat.choices[0].message.content 
 
@@ -172,7 +170,6 @@ if __name__ == "__main__":
                 chat = client.chat.completions.create(model=OPENAI_MODEL, messages=messages)
                 summary = chat.choices[0].message.content.replace('\n', '')
                 save_result_to_history(markdown_info, summary, image)
-                update_history(messages, markdown_info)
         elif markdown_info and key == 's':
             fileName = input('What do you want to name the new history?\n(This will be saved to the current working directory)\n')
             if len(fileName) > 3 and fileName[-3:].lower() != '.md':
@@ -191,4 +188,3 @@ if __name__ == "__main__":
             messages.append({'role': 'assistant', 'content': reply})
             if markdown_info:
                 save_result_to_history(markdown_info, message, reply)
-                update_history(messages, markdown_info)
