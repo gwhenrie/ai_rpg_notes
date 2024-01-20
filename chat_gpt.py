@@ -149,7 +149,7 @@ if __name__ == "__main__":
                     character = input('What would you like depicted?\n')
                     messages.append({'role': 'user',
                                      'content': f"Provide a visual description of '{character}'"})
-                    chat = client.chat.completions.create(model='gpt-3.5-turbo-1106', messages=messages)
+                    chat = client.chat.completions.create(model='gpt-4-1106-preview', messages=messages)
                     prompt = chat.choices[0].message.content 
 
             if prompt == "":
@@ -168,7 +168,7 @@ if __name__ == "__main__":
                 summaryPrompt = f"Summarize the following in one line: '{prompt}'"
                 messages.append({'role': 'user',
                                  'content': summaryPrompt})
-                chat = client.chat.completions.create(model='gpt-3.5-turbo-1106', messages=messages)
+                chat = client.chat.completions.create(model='gpt-4-1106-preview', messages=messages)
                 summary = chat.choices[0].message.content.replace('\n', '')
                 save_result_to_history(markdown_info, summary, image)
                 update_history(messages, markdown_info)
@@ -183,7 +183,7 @@ if __name__ == "__main__":
             message = input('What do you want information about?\n')
             messages.append({'role': 'user', 
                              'content': message})
-            chat = client.chat.completions.create(model='gpt-3.5-turbo-1106', messages=messages)
+            chat = client.chat.completions.create(model='gpt-4-1106-preview', messages=messages)
 
             reply = chat.choices[0].message.content
             print(f'\n{reply}')
